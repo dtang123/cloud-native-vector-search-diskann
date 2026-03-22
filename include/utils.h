@@ -29,7 +29,7 @@ typedef int FileHandle;
 #include "types.h"
 #include "tag_uint128.h"
 #include <any>
-
+#include "s3_path_utils.h"
 #ifdef EXEC_ENV_OLS
 #include "content_buf.h"
 #include "memory_mapped_files.h"
@@ -57,6 +57,7 @@ typedef int FileHandle;
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
+
 
 inline bool file_exists_impl(const std::string &name, bool dirCheck = false)
 {
@@ -98,7 +99,7 @@ inline bool file_exists_impl(const std::string &name, bool dirCheck = false)
 inline bool file_exists(const std::string &name, bool dirCheck = false)
 {
 #ifdef EXEC_ENV_OLS
-    bool exists = file_exists_impl(name, dirCheck);
+    bool exists = file_exists_impl(resolve_local_path(name), dirCheck);
     if (exists)
     {
         return true;
@@ -114,7 +115,7 @@ inline bool file_exists(const std::string &name, bool dirCheck = false)
         return exists;
     }
 #else
-    return file_exists_impl(name, dirCheck);
+    return file_exists_impl(resolve_local_path(name), dirCheck);
 #endif
 }
 
@@ -358,7 +359,7 @@ inline void get_bin_metadata(MemoryMappedFiles &files, const std::string &bin_fi
 
 inline void get_bin_metadata(const std::string &bin_file, size_t &nrows, size_t &ncols, size_t offset = 0)
 {
-    std::ifstream reader(bin_file.c_str(), std::ios::binary);
+    std::ifstream reader(resolve_local_path(bin_file.c_str()), std::ios::binary);
     get_bin_metadata_impl(reader, nrows, ncols, offset);
 }
 // get_bin_metadata functions END
@@ -373,7 +374,7 @@ inline size_t get_graph_num_frozen_points(const std::string &graph_file)
     std::ifstream in;
     in.exceptions(std::ios::badbit | std::ios::failbit);
 
-    in.open(graph_file, std::ios::binary);
+    in.open(resolve_local_path(graph_file), std::ios::binary);
     in.read((char *)&expected_file_size, sizeof(size_t));
     in.read((char *)&max_observed_degree, sizeof(uint32_t));
     in.read((char *)&start, sizeof(uint32_t));
@@ -461,7 +462,7 @@ inline void load_bin(const std::string &bin_file, T *&data, size_t &npts, size_t
     try
     {
         diskann::cout << "Opening bin file " << bin_file.c_str() << "... " << std::endl;
-        reader.open(bin_file, std::ios::binary | std::ios::ate);
+        reader.open(resolve_local_path(bin_file), std::ios::binary | std::ios::ate);
         reader.seekg(0);
         load_bin_impl<T>(reader, data, npts, dim, offset);
     }
@@ -813,7 +814,7 @@ inline void load_aligned_bin(const std::string &bin_file, T *&data, size_t &npts
     try
     {
         diskann::cout << "Reading (with alignment) bin file " << bin_file << " ..." << std::flush;
-        reader.open(bin_file, std::ios::binary | std::ios::ate);
+        reader.open(resolve_local_path(bin_file), std::ios::binary | std::ios::ate);
 
         uint64_t fsize = reader.tellg();
         reader.seekg(0);
@@ -970,7 +971,7 @@ inline void copy_aligned_data_from_file(const char *bin_file, T *&data, size_t &
     }
     std::ifstream reader;
     reader.exceptions(std::ios::badbit | std::ios::failbit);
-    reader.open(bin_file, std::ios::binary);
+    reader.open(resolve_local_path(bin_file), std::ios::binary);
     reader.seekg(offset, reader.beg);
 
     int npts_i32, dim_i32;

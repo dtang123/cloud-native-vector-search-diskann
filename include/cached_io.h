@@ -8,6 +8,7 @@
 #include <sstream>
 
 #include "logger.h"
+#include "s3_path_utils.h"
 #include "ann_exception.h"
 
 // sequential cached reads
@@ -20,7 +21,7 @@ class cached_ifstream
     cached_ifstream(const std::string &filename, uint64_t cacheSize) : cache_size(cacheSize), cur_off(0)
     {
         reader.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-        this->open(filename, cache_size);
+        this->open(resolve_local_path(filename), cache_size);
     }
     ~cached_ifstream()
     {

@@ -7,6 +7,7 @@
 
 #include "utils.h"
 #include <restapi/search_wrapper.h>
+#include "s3_aligned_file_reader.h"
 
 #ifndef _WINDOWS
 #include <sys/mman.h>
@@ -150,10 +151,17 @@ PQFlashSearch<T>::PQFlashSearch(const std::string &indexPrefix, const unsigned n
     reader.reset(new diskann::BingAlignedFileReader());
 #endif
 #else
-    auto ptr = new LinuxAlignedFileReader();
-    reader.reset(ptr);
+    if (index_path_prefix.rfind("s3://", 0) == 0)
+    {
+        // 4GB SLRU cache — matches paper's experimental setup
+        size_t cache_bytes = 4ULL * 1024 * 1024 * 1024;
+        reader.reset(new S3AlignedFileReader(cache_bytes));
+    }
+    else
+    {
+        reader.reset(new LinuxAlignedFileReader());
+    }
 #endif
-
     std::string index_prefix_path(indexPrefix);
     std::string disk_index_file = index_prefix_path + "_disk.index";
     std::string warmup_query_file = index_prefix_path + "_sample_data.bin";

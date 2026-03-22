@@ -16,10 +16,23 @@
 #include "tsl/robin_map.h"
 #include "tsl/robin_set.h"
 
+#include <list>
+#include <unordered_map>
 #define FULL_PRECISION_REORDER_MULTIPLIER 3
 
 namespace diskann
 {
+
+class SLRUCache {
+    size_t protected_cap_, probation_cap_;
+    // sector_offset -> sector_data
+    std::unordered_map<uint64_t, std::vector<char>> protected_, probation_;
+    std::list<uint64_t> protected_lru_, probation_lru_;
+public:
+    SLRUCache(size_t total_bytes, float protected_ratio = 0.8);
+    bool get(uint64_t offset, void* buf, size_t len);
+    void put(uint64_t offset, void* buf, size_t len);
+};
 
 template <typename T, typename LabelT = uint32_t> class PQFlashIndex
 {

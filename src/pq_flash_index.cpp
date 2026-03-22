@@ -8,6 +8,7 @@
 #include "pq_scratch.h"
 #include "pq_flash_index.h"
 #include "cosine_similarity.h"
+#include "s3_aligned_file_reader.h"
 
 #ifdef _WINDOWS
 #include "windows_aligned_file_reader.h"
@@ -772,6 +773,15 @@ template <typename T, typename LabelT> int PQFlashIndex<T, LabelT>::load(uint32_
                                     pq_compressed_vectors.c_str());
 #endif
 }
+static std::string resolve_local_path(const std::string &path)
+{
+    if (path.rfind("s3://", 0) == 0)
+    {
+        size_t last_slash = path.rfind('/');
+        return "/dev/shm/diskann_metadata/" + path.substr(last_slash + 1);
+    }
+    return path;
+}
 
 #ifdef EXEC_ENV_OLS
 template <typename T, typename LabelT>
@@ -833,7 +843,7 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
         FileContent &content_labels = files.getContent(labels_file);
         std::stringstream infile(std::string((const char *)content_labels._content, content_labels._size));
 #else
-    if (file_exists(labels_file))
+    if (file_exists(resolve_local_path(labels_file)))
     {
         std::ifstream infile(labels_file, std::ios::binary);
         if (infile.fail())
@@ -987,14 +997,14 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
 
     std::string disk_pq_pivots_path = this->_disk_index_file + "_pq_pivots.bin";
 #ifdef EXEC_ENV_OLS
-    if (files.fileExists(disk_pq_pivots_path))
+    if (files.fileExists(resolve_local_path(disk_pq_pivots_path)))
     {
         _use_disk_index_pq = true;
         // giving 0 chunks to make the _pq_table infer from the
         // chunk_offsets file the correct value
         _disk_pq_table.load_pq_centroid_bin(files, disk_pq_pivots_path.c_str(), 0);
 #else
-    if (file_exists(disk_pq_pivots_path))
+    if (file_exists(resolve_local_path(disk_pq_pivots_path)))
     {
         _use_disk_index_pq = true;
         // giving 0 chunks to make the _pq_table infer from the
@@ -1023,7 +1033,14 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
     ContentBuf buf(bytes, HEADER_SIZE);
     std::basic_istream<char> index_metadata(&buf);
 #else
-    std::ifstream index_metadata(_disk_index_file, std::ios::binary);
+    std::string local_index_file = _disk_index_file;
+    if (_disk_index_file.rfind("s3://", 0) == 0)
+    {
+        size_t last_slash = _disk_index_file.rfind('/');
+        std::string filename = _disk_index_file.substr(last_slash + 1);
+        local_index_file = "/dev/shm/diskann_metadata/" + filename;
+    }
+    std::ifstream index_metadata(local_index_file, std::ios::binary);
 #endif
 
     uint32_t nr, nc; // metadata itself is stored as bin format (nr is number of
@@ -1106,12 +1123,12 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
 #endif
 
 #ifdef EXEC_ENV_OLS
-    if (files.fileExists(medoids_file))
+    if (files.fileExists(resolve_local_path(medoids_file)))
     {
         size_t tmp_dim;
         diskann::load_bin<uint32_t>(files, norm_file, medoids_file, _medoids, _num_medoids, tmp_dim);
 #else
-    if (file_exists(medoids_file))
+    if (file_exists(resolve_local_path(medoids_file)))
     {
         size_t tmp_dim;
         diskann::load_bin<uint32_t>(medoids_file, _medoids, _num_medoids, tmp_dim);
@@ -1126,10 +1143,10 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
             throw diskann::ANNException(stream.str(), -1, __FUNCSIG__, __FILE__, __LINE__);
         }
 #ifdef EXEC_ENV_OLS
-        if (!files.fileExists(centroids_file))
+        if (!files.fileExists(resolve_local_path(centroids_file)))
         {
 #else
-        if (!file_exists(centroids_file))
+        if (!file_exists(resolve_local_path(centroids_file)))
         {
 #endif
             diskann::cout << "Centroid data file not found. Using corresponding vectors "
@@ -1170,13 +1187,13 @@ int PQFlashIndex<T, LabelT>::load_from_separate_paths(uint32_t num_threads, cons
     std::string norm_file = std::string(_disk_index_file) + "_max_base_norm.bin";
 
 #ifdef EXEC_ENV_OLS
-    if (files.fileExists(norm_file) && metric == diskann::Metric::INNER_PRODUCT)
+    if (files.fileExists(resolve_local_path(norm_file)) && metric == diskann::Metric::INNER_PRODUCT)
     {
         uint64_t dumr, dumc;
         float *norm_val;
         diskann::load_bin<float>(files, norm_val, dumr, dumc);
 #else
-    if (file_exists(norm_file) && metric == diskann::Metric::INNER_PRODUCT)
+    if (file_exists(resolve_local_path(norm_file)) && metric == diskann::Metric::INNER_PRODUCT)
     {
         uint64_t dumr, dumc;
         float *norm_val;
