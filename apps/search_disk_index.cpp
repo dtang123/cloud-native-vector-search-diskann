@@ -14,6 +14,7 @@
 #include "percentile_stats.h"
 #include "program_options_utils.hpp"
 
+#include "s3_aligned_file_reader.h"
 #ifndef _WINDOWS
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -106,7 +107,12 @@ int search_disk_index(diskann::Metric &metric, const std::string &index_path_pre
     reader.reset(new diskann::BingAlignedFileReader());
 #endif
 #else
-    reader.reset(new LinuxAlignedFileReader());
+    if (index_path_prefix.rfind("s3://", 0) == 0) {
+        size_t cache_bytes = 4ULL * 1024 * 1024 * 1024; // 4GB SLRU cache
+        reader.reset(new S3AlignedFileReader(cache_bytes));
+    } else {
+        reader.reset(new LinuxAlignedFileReader());
+    }
 #endif
 
     std::unique_ptr<diskann::PQFlashIndex<T, LabelT>> _pFlashIndex(
@@ -317,6 +323,7 @@ int main(int argc, char **argv)
 {
     std::string data_type, dist_fn, index_path_prefix, result_path_prefix, query_file, gt_file, filter_label,
         label_type, query_filters_file;
+    std::string local_path_prefix;
     uint32_t num_threads, K, W, num_nodes_to_cache, search_io_limit;
     std::vector<uint32_t> Lvec;
     bool use_reorder_data = false;
@@ -345,7 +352,6 @@ int main(int argc, char **argv)
         required_configs.add_options()("search_list,L",
                                        po::value<std::vector<uint32_t>>(&Lvec)->multitoken()->required(),
                                        program_options_utils::SEARCH_LIST_DESCRIPTION);
-
         // Optional parameters
         po::options_description optional_configs("Optional");
         optional_configs.add_options()("gt_file", po::value<std::string>(&gt_file)->default_value(std::string("null")),

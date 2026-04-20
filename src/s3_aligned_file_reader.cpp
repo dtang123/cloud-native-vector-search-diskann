@@ -208,18 +208,57 @@ S3AlignedFileReader::S3AlignedFileReader(size_t cache_bytes)
     Aws::InitAPI(sdk_options_);
     sdk_initialised_ = true;
 
-    // Build S3 client — uses the standard credential chain:
-    //   1. Environment variables (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)
-    //   2. ~/.aws/credentials
-    //   3. EC2 instance metadata (IAM role) ← works out of the box on EC2
+    // Read MinIO / S3 config from environment
+    const char *region_env   = std::getenv("AWS_DEFAULT_REGION");
+    const char *endpoint_env = std::getenv("MINIO_ENDPOINT");
+    const char *key_id       = std::getenv("AWS_ACCESS_KEY_ID");
+    const char *secret       = std::getenv("AWS_SECRET_ACCESS_KEY");
+
     Aws::Client::ClientConfiguration cfg;
-    const char *region_env = std::getenv("AWS_DEFAULT_REGION");
     cfg.region = (region_env != nullptr) ? region_env : "us-east-1";
-    // Use path-style addressing for compatibility with all S3-compatible stores
-    s3_client_ = std::make_shared<Aws::S3::S3Client>(
-        cfg,
-        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        /*useVirtualAddressing=*/false);
+
+    bool use_minio = (endpoint_env != nullptr);
+    if (use_minio)
+    {
+        // Strip http:// or https:// — endpointOverride takes host:port only
+        std::string ep(endpoint_env);
+        bool is_http = (ep.rfind("http://", 0) == 0);
+        if (ep.rfind("http://",  0) == 0) ep = ep.substr(7);
+        if (ep.rfind("https://", 0) == 0) ep = ep.substr(8);
+        cfg.endpointOverride = ep;
+        cfg.scheme = is_http ? Aws::Http::Scheme::HTTP
+                             : Aws::Http::Scheme::HTTPS;
+        diskann::cout << "S3AlignedFileReader: using MinIO endpoint: "
+                      << endpoint_env << std::endl;
+    }
+
+    // Build credentials — explicit if env vars set, else default chain
+    // (default chain covers ~/.aws/credentials and EC2 IAM roles)
+    if (key_id && secret)
+    {
+        Aws::Auth::AWSCredentials creds(key_id, secret);
+        s3_client_ = std::make_shared<Aws::S3::S3Client>(
+            creds,
+            cfg,
+            Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+            /*useVirtualAddressing=*/!use_minio  // path-style for MinIO,
+                                                 // virtual for real S3
+        );
+    }
+    else
+    {
+        // Fall back to default credential chain (EC2 IAM / ~/.aws)
+        s3_client_ = std::make_shared<Aws::S3::S3Client>(
+            cfg,
+            Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+            /*useVirtualAddressing=*/!use_minio
+        );
+    }
+
+    diskann::cout << "S3AlignedFileReader: region=" << cfg.region
+                  << " endpoint=" << (endpoint_env ? endpoint_env : "AWS default")
+                  << " credentials=" << (key_id ? "explicit env vars" : "default chain")
+                  << std::endl;
 
     // Optionally wire up the SLRU cache
     if (cache_bytes > 0)

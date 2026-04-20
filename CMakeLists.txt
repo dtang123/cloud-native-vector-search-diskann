@@ -52,6 +52,9 @@ if (MSVC)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
+set(AWSSDK_ROOT /home/tang627/awssdk)
+include_directories(${AWSSDK_ROOT}/include)
+link_directories(${AWSSDK_ROOT}/lib)
 
 if(NOT PYBIND)
     set(DISKANN_RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS ON)
