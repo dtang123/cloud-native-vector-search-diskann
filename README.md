@@ -1,9 +1,21 @@
 # Experiment Setup
 ## Index Build
 ```
+cd build
+cmake ..
+make build_disk_index
+make search_disk_index
+```
+```
 ~/DiskANN/build/apps/build_disk_index --data_type float --dist_fn l2 --data_path ~/GIST1M/gist_base.bin --index_path_prefix ~/diskANN_index_v2/ann -R 64 -L 128 --QD 120 -B 0.25 -M 6.0 > ~/diskann_build.log 2>&1
 ```
+## Minio Setup
+I assume you have already set up minio container. If not, look in my SPANN repo.
+```
+~/mc cp /path/to/ann_disk.index minio/warehouse/diskann/ann_disk.index
+```
 ## Setup Script
+Copies index metadata to ramdisk and verifies Minio
 ```
 #!/bin/bash
 # =============================================================================
@@ -197,6 +209,10 @@ echo "  Results file : ${RESULTS_FILE}"
 echo "════════════════════════════════════════════════"
 ```
 ## Experiment Script
+```
+cd build
+make search_disk_index
+```
 ```
 # Sweep parameters — matching exp_diskann.sh
 for search_len in 10 20 40 80 160; do
