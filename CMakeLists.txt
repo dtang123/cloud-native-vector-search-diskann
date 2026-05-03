@@ -52,10 +52,12 @@ if (MSVC)
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-set(AWSSDK_ROOT /home/tang627/awssdk)
-include_directories(${AWSSDK_ROOT}/include)
-link_directories(${AWSSDK_ROOT}/lib)
+# AWS SDK — locate via CMAKE_PREFIX_PATH or AWSSDK_ROOT
+if(AWSSDK_ROOT)
+    list(PREPEND CMAKE_PREFIX_PATH "${AWSSDK_ROOT}")
+endif()
 
+find_package(AWSSDK REQUIRED COMPONENTS core s3)
 if(NOT PYBIND)
     set(DISKANN_RELEASE_UNUSED_TCMALLOC_MEMORY_AT_CHECKPOINTS ON)
 endif()

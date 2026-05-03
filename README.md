@@ -3,7 +3,7 @@
 ```
 mkdir -p build
 cd build
-cmake ..
+cmake -DAWSSDK_ROOT=/path/to/awssdk ..
 make build_disk_index
 make search_disk_index
 ```
@@ -48,10 +48,10 @@ MINIO_ENDPOINT="${MINIO_ENDPOINT:-http://localhost:19000}"
 S3_BUCKET="${S3_BUCKET:-warehouse}"
 S3_INDEX_KEY="diskann/ann_disk.index"
 
-DISKANN_ROOT="${HOME}/DiskANN"
-LOCAL_INDEX_DIR="${HOME}/diskANN_index"
-QUERY_FILE="/hdd_root/tang627/GIST1M/gist_query.bin"
-GT_FILE="/hdd_root/tang627/GIST1M/gist_groundtruth.bin"
+DISKANN_ROOT="/path/to/directory/cloud-native-vector-search-diskann"
+LOCAL_INDEX_DIR="/path/to/index-directory/diskANN_index"
+QUERY_FILE="/path/to/gist_query.bin"
+GT_FILE="/path/to/gist_groundtruth.bin"
 RESULT_DIR="${HOME}"
 RESULTS_FILE="diskann_results.txt"
 
@@ -158,7 +158,7 @@ if [[ "${USE_LOCAL}" != "1" && "${USE_S3}" != "1" ]]; then
 elif [[ "${USE_S3}" == "1" ]]; then
     # Real AWS S3 — credentials come from IAM role or ~/.aws/credentials
     unset MINIO_ENDPOINT
-    export S3_BUCKET="${S3_BUCKET:-cloud-native-vector-search-tang627}"
+    export S3_BUCKET="${S3_BUCKET:-cloud-native-vector-search-your-unique-id}"
     echo "    Mode: Real AWS S3 (bucket: ${S3_BUCKET})"
 fi
 
