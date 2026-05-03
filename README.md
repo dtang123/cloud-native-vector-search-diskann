@@ -2,6 +2,7 @@
 ## Index Build
 ```
 cd build
+cmake ..
 make build_disk_index
 make search_disk_index
 ```
