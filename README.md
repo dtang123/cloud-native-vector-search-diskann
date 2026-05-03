@@ -1,6 +1,7 @@
 # Experiment Setup
 ## Index Build
 ```
+mkdir -p build
 cd build
 cmake ..
 make build_disk_index
